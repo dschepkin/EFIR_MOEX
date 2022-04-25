@@ -10,16 +10,25 @@ USING (
         f.typecode,
         f.matdate,
         f.begin_session_date,
+        f.max_dayoftrade, -- ДОБАВИЛ 25.04.22
+-- Скопировал из initial_load_v6
+-- Не понял почему участвует только таблица EFIR.TP_CBONDS_MICEX_OFFICIAL и нет EFIR.TP_CBONDS_MICEX_OFFICIAL_EVN
         CASE
-            WHEN matdate = TRUNC(SYSDATE) THEN dayoftrade
-            WHEN matdate > TRUNC(SYSDATE) OR matdate is null THEN
-                CASE
-                  WHEN max_lasttradedate < TRUNC(SYSDATE)-3 OR listed_till < TRUNC(SYSDATE)-3 THEN dayoftrade
-                  ELSE null
-                END
+             when matdate <= trunc (SYSDATE) then max_dayoftrade --Я упростил условие, схлопнув два предыдущих
+             when matdate > trunc (SYSDATE) then
+                case
+-- Правка 25.04.22
+                   when max_dayoftrade > trunc (SYSDATE)-3 then NULL --Смотреть остаётся только по max(DT)
+                   when max_dayoftrade < trunc (SYSDATE)-3 then max_dayoftrade
+                 end
+              when matdate is NULL then --Пока не объединяем с кейсом "> trunc (SYSDATE)", т.к. Анатолий решит по итогу, что делать с "Вечными" облигациями. Мы пока только покажем, что многие из них "заморожены" с крайней датой торговли
+                 case
+                   when max_dayoftrade > trunc (SYSDATE)-3 then NULL --Смотреть остаётся только по max(DT)
+                   when max_dayoftrade < trunc (SYSDATE)-3 then max_dayoftrade
+                 end
         END end_session_date,
         f.max_lasttradedate,
-        f.dayoftrade,
+--        f.dayoftrade, Убрал. наверное это теперь повторяет f.max_dayoftrade
         b.is_traded,
         b.listed_from,
         b.listed_till
@@ -34,9 +43,10 @@ USING (
                     typecode,
                     matdate,
                     dt,
-                    MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession) begin_session_date,
-                    MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession) dayoftrade,
-                    MAX(lasttradedate) OVER(PARTITION BY boardid, securityid, tradingsession) max_lasttradedate
+--Правка 25.04.22
+                    MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) begin_session_date, --Добавил id_iss
+                    MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) max_dayoftrade, --Добавил id_iss
+                    MAX(lasttradedate) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) max_lasttradedate --Добавил id_iss
                 FROM EFIR.TP_CBONDS_MICEX_OFFICIAL
                 )
         WHERE dt = begin_session_date
@@ -58,6 +68,7 @@ WHEN NOT MATCHED THEN
         typecode ,
         matdate ,
         begin_session_date,
+        max_dayoftrade, -- ДОБАВИЛ 25.04.22
         end_session_date ,
         max_lasttradedate,
         is_traded,
@@ -74,6 +85,7 @@ WHEN NOT MATCHED THEN
         f.typecode ,
         f.matdate ,
         f.begin_session_date,
+        f.max_dayoftrade, -- ДОБАВИЛ 25.04.22
         f.end_session_date , --!?
         f.max_lasttradedate,
         f.is_traded,
@@ -84,45 +96,33 @@ WHEN NOT MATCHED THEN
     )
 WHEN MATCHED THEN -- Не понял, где-то стоит mss. к end_session_date , где-то не стоит
     UPDATE SET
+
     end_session_date =
         CASE
-            WHEN f.matdate <= TRUNC(SYSDATE) AND mss.end_session_date is null THEN f.dayoftrade
-            WHEN ( f.matdate > TRUNC(SYSDATE) OR f.matdate is null) AND (f.max_lasttradedate < TRUNC(SYSDATE)-3 OR f.listed_till < TRUNC(SYSDATE)-3 ) AND mss.end_session_date is null THEN f.dayoftrade
-            WHEN ( f.matdate > TRUNC(SYSDATE) OR f.matdate is null) AND (f.max_lasttradedate > TRUNC(SYSDATE)-3 OR f.listed_till > TRUNC(SYSDATE)-3 ) AND mss.end_session_date is null THEN null
-         -- WHEN (mss.max_lasttradedate > TRUNC(SYSDATE)-3 OR mss.listed_till > TRUNC(SYSDATE)-3) AND mss.end_session_date is not null THEN null -- Мне показалось это условие непонятным и ненужным, оно похоже на недоделанное следующее
-            WHEN (f.matdate > TRUNC(SYSDATE) OR f.matdate is null) AND (mss.max_lasttradedate != f.max_lasttradedate or mss.listed_till != f.listed_till) AND mss.end_session_date is not null THEN
-                CASE
-                    WHEN f.max_lasttradedate > TRUNC(SYSDATE)-3 OR f.listed_till > TRUNC(SYSDATE)-3 THEN null
-                    WHEN f.max_lasttradedate < TRUNC(SYSDATE)-3 OR f.listed_till < TRUNC(SYSDATE)-3 THEN f.dayoftrade
-                    WHEN f.max_lasttradedate is NULL OR f.listed_till is NULL THEN f.dayoftrade --Если прилетит зануление (т.е. ценную бумагу уберут), то хотя бы останется последняя максимальная дата из таблицы SESSIONS
-                END
-            ELSE end_session_date -- т.е. остается старой
-        END,
-    update_date =
-      CASE
-            WHEN f.matdate <= TRUNC(SYSDATE) AND mss.end_session_date is null THEN SYSDATE
-            WHEN ( f.matdate > TRUNC(SYSDATE) OR f.matdate is null) AND (f.max_lasttradedate < TRUNC(SYSDATE)-3 OR f.listed_till < TRUNC(SYSDATE)-3 ) AND mss.end_session_date is null THEN SYSDATE
-            WHEN ( f.matdate > TRUNC(SYSDATE) OR f.matdate is null) AND (f.max_lasttradedate > TRUNC(SYSDATE)-3 OR mss.listed_till > TRUNC(SYSDATE)-3 ) AND mss.end_session_date is not null THEN SYSDATE
-            WHEN (mss.matdate > TRUNC(SYSDATE) OR mss.matdate is null) AND (mss.max_lasttradedate != f.max_lasttradedate or mss.listed_till != f.listed_till ) AND mss.end_session_date is not null THEN
-                CASE
-                    WHEN f.max_lasttradedate > TRUNC(SYSDATE)-3 OR f.listed_till > TRUNC(SYSDATE)-3 THEN SYSDATE
-                    WHEN f.max_lasttradedate < TRUNC(SYSDATE)-3 OR f.listed_till < TRUNC(SYSDATE)-3 THEN SYSDATE
-                    WHEN f.max_lasttradedate is NULL OR f.listed_till is NULL THEN SYSDATE --Если прилетит зануление (т.е. ценную бумагу уберут),то дата апдейта отразит попытку зануления.
-                END
+--Правка 25.04.22
+           WHEN f.matdate <= TRUNC(SYSDATE) AND end_session_date is null THEN f.max_dayoftrade
+           WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is null AND (mss.max_dayoftrade != f.max_dayoftrade) THEN
+                 case
+                   when f.max_dayoftrade > trunc (SYSDATE)-3 then NULL
+                   when f.max_dayoftrade < trunc (SYSDATE)-3 then f.max_dayoftrade
+                 end
+           WHEN f.matdate is NULL AND end_session_date is null AND (mss.max_dayoftrade != f.max_dayoftrade) THEN --Пока не объединяем с кейсом "> trunc (SYSDATE)", т.к. Анатолий решит по итогу, что делать с "Вечными" облигациями. Мы пока только покажем, что многие из них "заморожены" с крайней датой торговли
+                 case
+                   when f.max_dayoftrade > trunc (SYSDATE)-3 then NULL
+                   when f.max_dayoftrade < trunc (SYSDATE)-3 then f.max_dayoftrade
+                 end
 
-            WHEN f.max_lasttradedate > mss.max_lasttradedate THEN SYSDATE --Добавил от max_lasttradedate
-            WHEN mss.max_lasttradedate is null AND f.max_lasttradedate is not null THEN SYSDATE --Добавил от max_lasttradedate
-            WHEN mss.max_lasttradedate is not null AND f.max_lasttradedate is null THEN SYSDATE --Если прилетит зануление (т.е. ценную бумагу уберут),то дата апдейта отразит попытку зануления.
-
-            WHEN f.listed_from > mss.listed_from THEN SYSDATE --Добавил от listed_from
-            WHEN mss.listed_from is null AND f.listed_from is not null THEN SYSDATE
-            WHEN mss.listed_from is not null AND f.listed_from is null THEN SYSDATE --Если прилетит зануление (т.е. ценную бумагу уберут),то дата апдейта отразит попытку зануления.
-
-            WHEN f.listed_till > mss.listed_till THEN SYSDATE --Добавил от listed_till
-            WHEN mss.listed_till is null AND f.listed_till is not null THEN SYSDATE
-            WHEN mss.listed_till is not null AND f.listed_till is null THEN SYSDATE --Если прилетит зануление (т.е. ценную бумагу уберут),то дата апдейта отразит попытку зануления.
-
-          ELSE mss.update_date -- т.е. остается старой
+           WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is NOT NULL AND (mss.max_dayoftrade != f.max_dayoftrade) THEN
+                case
+                   when f.max_dayoftrade > trunc (SYSDATE)-3 then NULL
+                   when f.max_dayoftrade < trunc (SYSDATE)-3 then f.max_dayoftrade
+                 end
+           WHEN f.matdate is NULL AND end_session_date is NOT NULL AND (mss.max_dayoftrade != f.max_dayoftrade) THEN --Пока не объединяем с кейсом "> trunc (SYSDATE)", т.к. Анатолий решит по итогу, что делать с "Вечными" облигациями. Мы пока только покажем, что многие из них "заморожены" с крайней датой торговли
+                case
+                   when f.max_dayoftrade > trunc (SYSDATE)-3 then NULL
+                   when f.max_dayoftrade < trunc (SYSDATE)-3 then f.max_dayoftrade
+                 end
+            ELSE end_session_date -- т.е. остается старое значение
         END,
 
 --Что ещё важно отслеживать и менять при update-ах
@@ -131,22 +131,77 @@ WHEN MATCHED THEN -- Не понял, где-то стоит mss. к end_session
        CASE
             WHEN f.max_lasttradedate > mss.max_lasttradedate THEN f.max_lasttradedate
             WHEN mss.max_lasttradedate is null AND f.max_lasttradedate is not null THEN f.max_lasttradedate
-            WHEN mss.max_lasttradedate is not null AND f.max_lasttradedate is null THEN mss.max_lasttradedate --Если прилетит зануление (т.е. ценную бумагу уберут), то дата останется максимальной от SESSIONS
-         ELSE mss.max_lasttradedate -- т.е. остается старой
+            WHEN mss.max_lasttradedate is not null AND f.max_lasttradedate is null THEN mss.max_lasttradedate --Если прилетит зануление (т.е. ценную бумагу уберут), то дата останется старой максимальной от SESSIONS
+         ELSE max_lasttradedate -- т.е. остается старой
        END,
 
     listed_from =
         CASE
             WHEN f.listed_from > mss.listed_from THEN f.listed_from
             WHEN mss.listed_from is null AND f.listed_from is not null THEN f.listed_from
-            WHEN mss.listed_from is not null AND f.listed_from is null THEN mss.listed_from --Если прилетит зануление (т.е. ценную бумагу уберут), то дата останется максимальной от SESSIONS
-         ELSE mss.listed_from -- т.е. остается старой
+            WHEN mss.listed_from is not null AND f.listed_from is null THEN mss.listed_from --Если прилетит зануление (т.е. ценную бумагу уберут), то дата останется старой максимальной от SESSIONS
+         ELSE listed_from -- т.е. остается старой
        END,
 
     listed_till =
         CASE
             WHEN f.listed_till > mss.listed_till THEN f.listed_till
             WHEN mss.listed_till is null AND f.listed_till is not null THEN f.listed_till
-            WHEN mss.listed_till is not null AND f.listed_till is null THEN mss.listed_till --Если прилетит зануление (т.е. ценную бумагу уберут), то дата останется максимальной от SESSIONS
-         ELSE mss.listed_till -- т.е. остается старой
-       END
+            WHEN mss.listed_till is not null AND f.listed_till is null THEN mss.listed_till --Если прилетит зануление (т.е. ценную бумагу уберут), то дата останется старой максимальной от SESSIONS
+         ELSE listed_till -- т.е. остается старой
+       END,
+
+--Правка 25.04.22
+
+     matdate = --На случай, если решат "вечную" облигацию ограничить какой-то датой., или наоборот, из обычной облигации, сделать вечную
+        CASE
+            WHEN mss.MATDATE != f.MATDATE then f.MATDATE
+            ELSE matdate -- т.е. остается старой
+        END,
+
+     max_dayoftrade =
+         CASE
+            WHEN f.max_dayoftrade > mss.max_dayoftrade then f.max_dayoftrade
+            ELSE mss.max_dayoftrade -- т.е. остается старой
+         END,
+
+    update_date =
+      CASE
+--Правка 25.04.22
+           WHEN f.max_lasttradedate > mss.max_lasttradedate THEN SYSDATE --Добавил от max_lasttradedate
+           WHEN mss.max_lasttradedate is null AND f.max_lasttradedate is not null THEN SYSDATE
+           WHEN mss.max_lasttradedate is not null AND f.max_lasttradedate is null THEN SYSDATE --Если прилетит зануление (т.е. ценную бумагу уберут),то дата update отразит попытку зануления.
+           WHEN f.listed_from > mss.listed_from THEN SYSDATE --Добавил от listed_from
+           WHEN mss.listed_from is null AND f.listed_from is not null THEN SYSDATE
+           WHEN mss.listed_from is not null AND f.listed_from is null THEN SYSDATE --Если прилетит зануление (т.е. ценную бумагу уберут),то дата update отразит попытку зануления.
+           WHEN f.listed_till > mss.listed_till THEN SYSDATE --Добавил от listed_till
+           WHEN mss.listed_till is null AND f.listed_till is not null THEN SYSDATE
+           WHEN mss.listed_till is not null AND f.listed_till is null THEN SYSDATE --Если прилетит зануление (т.е. ценную бумагу уберут),то дата update отразит попытку зануления.
+           WHEN mss.MATDATE != f.MATDATE THEN SYSDATE --Добавил от matdate
+           WHEN f.max_dayoftrade > mss.max_dayoftrade THEN SYSDATE --Добавил от max_dayoftrade
+
+           WHEN f.matdate <= TRUNC(SYSDATE) AND end_session_date is null THEN SYSDATE
+           WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is null AND (mss.max_dayoftrade != f.max_dayoftrade) THEN
+                 case
+                   when f.max_dayoftrade > trunc (SYSDATE)-3 then SYSDATE
+                   when f.max_dayoftrade < trunc (SYSDATE)-3 then SYSDATE
+                 end
+           WHEN f.matdate is NULL AND end_session_date is null AND (mss.max_dayoftrade != f.max_dayoftrade) THEN --Пока не объединяем с кейсом "> trunc (SYSDATE)", т.к. Анатолий решит по итогу, что делать с "Вечными" облигациями. Мы пока только покажем, что многие из них "заморожены" с крайней датой торговли
+                 case
+                   when max_dayoftrade > trunc (SYSDATE)-3 then SYSDATE
+                   when max_dayoftrade < trunc (SYSDATE)-3 then SYSDATE
+                 end
+
+           WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is NOT NULL AND (mss.max_dayoftrade != f.max_dayoftrade) THEN
+                case
+                   when max_dayoftrade > trunc (SYSDATE)-3 then SYSDATE
+                   when max_dayoftrade < trunc (SYSDATE)-3 then SYSDATE
+                 end
+           WHEN f.matdate is NULL AND end_session_date is NOT NULL AND (mss.max_dayoftrade != f.max_dayoftrade) THEN --Пока не объединяем с кейсом "> trunc (SYSDATE)", т.к. Анатолий решит по итогу, что делать с "Вечными" облигациями. Мы пока только покажем, что многие из них "заморожены" с крайней датой торговли
+                case
+                   when max_dayoftrade > trunc (SYSDATE)-3 then SYSDATE
+                   when max_dayoftrade < trunc (SYSDATE)-3 then SYSDATE
+                 end
+            ELSE update_date -- т.е. остается старое значение
+        END
+;

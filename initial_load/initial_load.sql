@@ -13,6 +13,7 @@ BEGIN
         TYPECODE ,
         MATDATE ,
         BEGIN_SESSION_DATE,
+        MAX_DAYOFTRADE,      --ДОБАВИЛ 25.04.22
         END_SESSION_DATE ,
         MAX_LASTTRADEDATE,
         IS_TRADED,
@@ -29,6 +30,7 @@ BEGIN
         typecode            TYPECODE,
         matdate             MATDATE,
         begin_session_date  BEGIN_SESSION_DATE,
+        MAX_DAYOFTRADE,                            --!!! Тоже нужно как-то добавить, который max(DT) из родительских таблиц
         end_session_date    END_SESSION_DATE,
         MAX_LASTTRADEDATE,
         IS_TRADED,
@@ -36,9 +38,7 @@ BEGIN
         listed_till         LISTED_TILL,
         l_sysdate            ADD_DATE,
         l_sysdate            UPDATE_DATE
-    
-	
-	from (
+    from (
         --EFIR.TP_CBONDS_MICEX_OFFICIAL
         SELECT
             f.securityid,
@@ -48,22 +48,20 @@ BEGIN
             f.shortname,
             f.typecode,
             f.matdate,
-            f.begin_session_date,
+            f.begin_session_date, -- Может быть такое, что begin_session_date > чем последняя дата торговли. Например SECURITYID-XS0810596832 BOARD-PTOD TRADINGSESSION-2 (такое однозначно к Анатолию), Возможно, нужно будет прописывать отдельные case's  для begin_session_date под такое
+            f.max_dayoftrade, -- ДОБАВИЛ 25.04.22
             case
-            when matdate <= trunc (SYSDATE) then dayoftrade --Я упростил условие, схлопнув два предыдущих
-            when matdate > trunc (SYSDATE)
-            then
-                case
-                  when max_lasttradedate < trunc (SYSDATE)-3 or listed_till < trunc (SYSDATE)-3 then dayoftrade --Где есть lasttradedate или listed_till ранее чем 3 дня
-                  when max_lasttradedate > trunc (SYSDATE)-3 or listed_till > trunc (SYSDATE)-3 then NULL --Где одна из дат торговли максимально близка к текущей дате
-                  when max_lasttradedate is NULL and listed_till is NULL then NULL --Для разбора ситуации
-                end
-            when matdate is NULL
-            then
-                case
-                when max_lasttradedate < trunc (SYSDATE)-3 or listed_till < trunc (SYSDATE)-3 then dayoftrade --Где есть lasttradedate или listed_till ранее чем 3 дня
-                when max_lasttradedate > trunc (SYSDATE)-3 or listed_till > trunc (SYSDATE)-3 then NULL --Где одна из дат торговли максимально близка к текущей дате
-                when max_lasttradedate is NULL and listed_till is NULL then NULL ----Для разбора ситуации
+               when matdate <= trunc (SYSDATE) then max_dayoftrade --Я упростил условие, схлопнув два предыдущих
+               when matdate > trunc (SYSDATE) then
+                 case
+-- Правка 25.04.22
+                   when max_dayoftrade > trunc (SYSDATE)-3 then NULL --Смотреть остаётся только по max(DT)
+                   when max_dayoftrade < trunc (SYSDATE)-3 then max_dayoftrade
+                  end
+               when matdate is NULL then --Пока не объединяем с кейсом "> trunc (SYSDATE)", т.к. Анатолий решит по итогу, что делать с "Вечными" облигациями. Мы пока только покажем, что многие из них "заморожены" с крайней датой торговли
+                 case
+                   when max_dayoftrade > trunc (SYSDATE)-3 then NULL --Смотреть остаётся только по max(DT)
+                   when max_dayoftrade < trunc (SYSDATE)-3 then max_dayoftrade
                 end
             end end_session_date,
             max_lasttradedate,
@@ -81,9 +79,10 @@ BEGIN
                       typecode,
                       matdate,
                       dt,
-                      MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession) begin_session_date,
-                      MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession) dayoftrade,
-					  MAX(lasttradedate) OVER(PARTITION BY boardid, securityid, tradingsession) max_lasttradedate
+-- Правка 25.04.22
+                      MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) begin_session_date, --разве в ключ не включили id_iss? Добавлен id_iss
+                      MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) max_dayoftrade, --Добавлен id_iss
+                      MAX(lasttradedate) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) max_lasttradedate --Добавлен id_iss
                     FROM EFIR.TP_CBONDS_MICEX_OFFICIAL
                     )
             WHERE dt = begin_session_date
@@ -101,21 +100,19 @@ BEGIN
             f.typecode,
             f.matdate,
             f.begin_session_date,
+            f.max_dayoftrade, -- ДОБАВИЛ 25.04.22
             case
-            when matdate <= trunc (SYSDATE)-3 then dayoftrade --Я упростил условие, схлопнув два предыдущих
-            when matdate > trunc (SYSDATE)
-            then
-                case
-                  when max_lasttradedate < trunc (SYSDATE)-3 or listed_till < trunc (SYSDATE)-3 then dayoftrade --Где есть lasttradedate или listed_till ранее чем 3 дня
-                  when max_lasttradedate > trunc (SYSDATE)-3 or listed_till > trunc (SYSDATE)-3 then NULL --Где одна из дат торговли максимально близка к текущей дате
-                  when max_lasttradedate is NULL and listed_till is NULL then NULL --Для разбора ситуации
+             when matdate <= trunc (SYSDATE)-3 then max_dayoftrade --Я упростил условие, схлопнув два предыдущих
+             when matdate > trunc (SYSDATE) then
+                 case
+-- Правка 25.04.22
+                   when max_dayoftrade > trunc (SYSDATE)-3 then NULL --Смотреть остаётся только по max(DT)
+                   when max_dayoftrade < trunc (SYSDATE)-3 then max_dayoftrade
                 end
-            when matdate is NULL
-            then
-                case
-                when max_lasttradedate < trunc (SYSDATE)-3 or listed_till < trunc (SYSDATE)-3 then dayoftrade --Где есть lasttradedate или listed_till ранее чем 3 дня
-                when max_lasttradedate > trunc (SYSDATE)-3 or listed_till > trunc (SYSDATE)-3 then NULL --Где одна из дат торговли максимально близка к текущей дате
-                when max_lasttradedate is NULL and listed_till is NULL then NULL --Для разбора ситуации
+             when matdate is NULL then --Пока не объединяем с кейсом "> trunc (SYSDATE)", т.к. Анатолий решит по итогу, что делать с "Вечными" облигациями. Мы пока только покажем, что многие из них "заморожены" с крайней датой торговли
+                 case
+                    when max_dayoftrade > trunc (SYSDATE)-3 then NULL --Смотреть остаётся только по max(DT)
+                   when max_dayoftrade < trunc (SYSDATE)-3 then max_dayoftrade
                 end
             end end_session_date,
             max_lasttradedate,
@@ -133,9 +130,10 @@ BEGIN
                       typecode,
                       matdate,
                       dt,
-                      MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession) begin_session_date,
-                      MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession) dayoftrade,
-					  MAX(lasttradedate) OVER(PARTITION BY boardid, securityid, tradingsession) max_lasttradedate
+-- Правка 25.04.22
+                      MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) begin_session_date, --Добавлен id_iss
+                      MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) max_dayoftrade, --Добавлен id_ISS
+                      MAX(lasttradedate) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) max_lasttradedate --Добавлен id_ISS
                     FROM EFIR.TP_CBONDS_MICEX_OFFICIAL_EVN
                     )
             WHERE dt = begin_session_date
@@ -153,10 +151,10 @@ BEGIN
             f.typecode,
             null matdate,
             f.begin_session_date,
+            f.max_dayoftrade,  -- ДОБАВИЛ 25.04.22
             case
-                when listed_till > trunc (SYSDATE)-3 then NULL --Для акции, где дата listed_till максимально близка к текущей дате
-                when listed_till < trunc (SYSDATE)-3 then dayoftrade --Для акции, где дата listed_till ранее чем 3 дня
-				when listed_till is NULL then NULL --Для разбора ситуации
+                when max_dayoftrade > trunc (SYSDATE)-3 then NULL
+                when max_dayoftrade < trunc (SYSDATE)-3 then max_dayoftrade
             end end_session_date,
             null max_lasttradedate,
             b.is_traded,
@@ -172,8 +170,9 @@ BEGIN
                   shortname,
                   typecode,
                   dt,
-                  MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession) begin_session_date,
-                  MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession) dayoftrade
+-- Правка 25.04.22
+                  MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) begin_session_date, --Добавлен id_iss
+                  MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) max_dayoftrade --Добавлен id_iss
                 FROM EFIR.TP_SHARES_MICEX_OFFICIAL
                 ) --ДЛЯ АКЦИЙ (SHARES)
             WHERE dt = begin_session_date
@@ -191,10 +190,10 @@ BEGIN
             f.typecode,
             null matdate,
             f.begin_session_date,
+            f.max_dayoftrade,  -- ДОБАВИЛ 25.04.22
             case
-                when listed_till > trunc (SYSDATE)-3 then NULL --Для акции, где дата listed_till максимально близка к текущей дате
-                when listed_till < trunc (SYSDATE)-3 then dayoftrade --Для акции, где дата listed_till ранее чем 3 дня
-				when listed_till is NULL then NULL --Для разбора ситуации
+                when max_dayoftrade > trunc (SYSDATE)-3 then NULL
+                when max_dayoftrade < trunc (SYSDATE)-3 then max_dayoftrade
             end end_session_date,
             null max_lasttradedate,
             b.is_traded,
@@ -210,8 +209,8 @@ BEGIN
                   shortname,
                   typecode,
                   dt,
-                  MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession) begin_session_date,
-                  MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession) dayoftrade
+                  MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) begin_session_date, --Добавлен id_iss
+                  MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) max_dayoftrade --Добавлен id_iss
                 FROM EFIR.TP_SHARES_MICEX_OFFICIAL_MON
                 ) --ДЛЯ АКЦИЙ (SHARES)
             WHERE dt = begin_session_date
@@ -229,10 +228,10 @@ BEGIN
             f.typecode,
             null matdate,
             f.begin_session_date,
+            f.max_dayoftrade,  -- ДОБАВИЛ 25.04.22
             case
-                when listed_till > trunc (SYSDATE)-3 then NULL --Для акции, где дата listed_till максимально близка к текущей дате
-                when listed_till < trunc (SYSDATE)-3 then dayoftrade --Для акции, где дата listed_till ранее чем 3 дня
-				when listed_till is NULL then NULL --Для разбора ситуации
+                when max_dayoftrade > trunc (SYSDATE)-3 then NULL
+                when max_dayoftrade < trunc (SYSDATE)-3 then max_dayoftrade
             end end_session_date,
             null max_lasttradedate,
             b.is_traded,
@@ -248,8 +247,9 @@ BEGIN
                   shortname,
                   typecode,
                   dt,
-                  MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession) begin_session_date,
-                  MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession) dayoftrade
+-- Правка 25.04.22
+                  MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) begin_session_date, --Добавлен id_iss
+                  MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) max_dayoftrade --Добавлен id_iss
                 FROM EFIR.TP_SHARES_MICEX_OFFICIAL_EVN
                 ) --ДЛЯ АКЦИЙ (SHARES)
             WHERE dt = begin_session_date
@@ -266,4 +266,6 @@ BEGIN
         l_error := SQLERRM;
         RAISE_APPLICATION_ERROR(-20001,'Insert failed. Error: '|| l_error);
 END;
+/
+COMMIT
 /

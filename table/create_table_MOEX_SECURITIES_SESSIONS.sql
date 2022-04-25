@@ -1,9 +1,7 @@
--- Установить уникальность для каждой записи в таблицу = SECURYTYID + BOARDID + TRADINGSESSION (учитывая и то, что TRADINGSESSION может быть is null );
--- Установить авто-присвоение порядкового номера служебного идентификатора ID каждой строке  в ходе наполнения таблицы;
--- Установить авто-присвоение служебной (системной) даты для поля ADD_DATE в момент записи строки в таблицу.
-/
 -- ALTER TABLE efir.SEQ_MOEX_SECURITIES_SESSIONS DROP CONSTRAINT UK_01;
 -- DROP INDEX EFIR.PK_MOEX_SECURITIES_SESSIONS;
+--/
+alter session set ddl_lock_timeout=300;
 /
 DROP TABLE "EFIR"."MOEX_SECURITIES_SESSIONS";
 /
@@ -21,6 +19,7 @@ DROP SEQUENCE EFIR.SEQ_MOEX_SECURITIES_SESSIONS;
     "BEGIN_SESSION_DATE" DATE, --NOT NULL,
     "END_SESSION_DATE" DATE,
     "MAX_LASTTRADEDATE" DATE,
+    "MAX_DAYOFTRADE" DATE,
     "IS_TRADED" NUMBER(1,0),
     "LISTED_FROM" DATE,
     "LISTED_TILL" DATE,

@@ -10,6 +10,7 @@ INSERT INTO EFIR.MOEX_SEC_SES_HIST (
     BEGIN_SESSION_DATE ,
     END_SESSION_DATE ,
     MAX_LASTTRADEDATE ,
+    MAX_DAYOFTRADE ,
     IS_TRADED ,
     LISTED_FROM ,
     LISTED_TILL ,
@@ -29,6 +30,7 @@ SELECT
     mss.BEGIN_SESSION_DATE ,
     mss.END_SESSION_DATE ,
     mss.MAX_LASTTRADEDATE ,
+    mss.MAX_DAYOFTRADE ,
     mss.IS_TRADED ,
     mss.LISTED_FROM ,
     mss.LISTED_TILL ,
@@ -45,6 +47,7 @@ JOIN (
         f.id_iss,
         f.matdate,
         f.max_lasttradedate,
+        f.max_dayoftrade,
         b.listed_till
     FROM (
         SELECT * FROM (
@@ -55,8 +58,10 @@ JOIN (
                     id_iss,
                     matdate,
                     dt,
-                    MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession) begin_session_date,
-                    MAX(lasttradedate) OVER(PARTITION BY boardid, securityid, tradingsession) max_lasttradedate
+--Правка 23.04.22
+                    MIN(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) begin_session_date, --Добавил id_iss
+                    MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) max_dayoftrade, --Была пропущена строчка, и добавил id_iss
+                    MAX(lasttradedate) OVER(PARTITION BY boardid, securityid, tradingsession, id_iss) max_lasttradedate --Добавил id_iss
                 FROM EFIR.TP_CBONDS_MICEX_OFFICIAL
                 )
         WHERE dt = begin_session_date
@@ -69,6 +74,7 @@ JOIN (
     AND COALESCE(mss.tradingsession,-99) = COALESCE(f.tradingsession,-99)
     )
 WHERE 1=1
---AND (mss.max_lasttradedate > TRUNC(SYSDATE)-3 OR mss.listed_till > TRUNC(SYSDATE)-3) AND mss.end_session_date is not null -- не Пойму о чем это условие
-AND ( mss.end_session_date is not null AND (mss.MATDATE > TRUNC(SYSDATE) or mss.MATDATE is NULL) AND (mss.max_lasttradedate != f.max_lasttradedate or mss.listed_till != f.listed_till) )
+--Правка 24.04.22
+AND mss.MATDATE != f.MATDATE -- Добавил строчку, если вдруг решат "вечную" облигацию ограничить какой-то датой, или наоборот убрать дату погашения.
+AND ( mss.end_session_date is not null AND (mss.MATDATE > TRUNC(SYSDATE) or mss.MATDATE is NULL) AND (mss.max_dayoftrade != f.max_dayoftrade) ) --Добавил dayoftrade ~ max(DT)
 ;
