@@ -106,11 +106,24 @@ WHEN MATCHED THEN -- Не понял, где-то стоит mss. к end_session
                    when f.max_dayoftrade > trunc (SYSDATE)-3 then NULL
                    when f.max_dayoftrade < trunc (SYSDATE)-3 then f.max_dayoftrade
                  end
+--Добавлено 27.04.22
+           WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is null AND (mss.max_dayoftrade = f.max_dayoftrade) THEN
+                 case
+           when f.max_dayoftrade > trunc (SYSDATE)-3 then NULL
+                   when f.max_dayoftrade < trunc (SYSDATE)-3 then f.max_dayoftrade
+           end
+
            WHEN f.matdate is NULL AND end_session_date is null AND (mss.max_dayoftrade != f.max_dayoftrade) THEN --Пока не объединяем с кейсом "> trunc (SYSDATE)", т.к. Анатолий решит по итогу, что делать с "Вечными" облигациями. Мы пока только покажем, что многие из них "заморожены" с крайней датой торговли
                  case
                    when f.max_dayoftrade > trunc (SYSDATE)-3 then NULL
                    when f.max_dayoftrade < trunc (SYSDATE)-3 then f.max_dayoftrade
                  end
+--Добавлено 27.04.22
+           WHEN f.matdate is NULL AND end_session_date is null AND (mss.max_dayoftrade = f.max_dayoftrade) THEN
+                 case
+           when f.max_dayoftrade > trunc (SYSDATE)-3 then NULL
+                   when f.max_dayoftrade < trunc (SYSDATE)-3 then f.max_dayoftrade
+           end
 
            WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is NOT NULL AND (mss.max_dayoftrade != f.max_dayoftrade) THEN
                 case
@@ -191,6 +204,17 @@ WHEN MATCHED THEN -- Не понял, где-то стоит mss. к end_session
                    when max_dayoftrade > trunc (SYSDATE)-3 then SYSDATE
                    when max_dayoftrade < trunc (SYSDATE)-3 then SYSDATE
                  end
+--Добавлено 27.04.22
+           WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is null AND (mss.max_dayoftrade = f.max_dayoftrade) THEN
+                 case
+           when f.max_dayoftrade > trunc (SYSDATE)-3 then update_date --остается старой
+                   when f.max_dayoftrade < trunc (SYSDATE)-3 then SYSDATE
+           end
+           WHEN f.matdate is NULL AND end_session_date is null AND (mss.max_dayoftrade = f.max_dayoftrade) THEN
+                 case
+           when f.max_dayoftrade > trunc (SYSDATE)-3 then update_date --остается старой
+                   when f.max_dayoftrade < trunc (SYSDATE)-3 then SYSDATE
+           end
 
            WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is NOT NULL AND (mss.max_dayoftrade != f.max_dayoftrade) THEN
                 case
