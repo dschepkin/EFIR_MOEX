@@ -13,7 +13,8 @@ END;
 /
 select * from EFIR.MOEX_SEC_SES_HIST
 /
-select * 
+--лог выполнения задания
+select *
 from EFIR.MOEX_SECURITIES_SESSIONS
 where TRUNC(update_date) = TRUNC(sysdate)
 order by update_date desc
@@ -34,4 +35,18 @@ select  to_char(d.actual_start_date, 'dd-mm-yyyy hh24:mi:ss') "Start_DATE",
  and l.owner = 'EFIR'
  and l.job_name = 'MOEX_SEC_SES_ACTUALIZATION_J'
  order by l.log_date desc
+/
+/*[12:43] Александр Чернышёв
+ну что я хочу тебе сказать.Вроде всё круть! Действительно записей похожих на history не было.
+Прошерстил историю, update-ы просто проставились там где надо.
+Проверял таким макаром, вдруг пригодиться когда-нибудь.
+/*/
+select * from MOEX_SECURITIES_SESSIONS
+where update_date > trunc (sysdate)-2 and MATDATE > trunc (SYSDATE)-5
+and END_SESSION_DATE is NULL
+order by MATDATE ASC
+/
+select * from MOEX_SECURITIES_SESSIONS
+where update_date > trunc (sysdate)-2 and MATDATE > trunc (SYSDATE)-5
+and END_SESSION_DATE is NULL and MATDATE is NULL
 /
