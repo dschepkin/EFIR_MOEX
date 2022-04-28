@@ -13,12 +13,12 @@ END;
 /
 select * from EFIR.MOEX_SEC_SES_HIST
 /
---лог выполнения задания
 select *
 from EFIR.MOEX_SECURITIES_SESSIONS
 where TRUNC(update_date) = TRUNC(sysdate)
 order by update_date desc
 /
+--лог выполнения задания
 select  to_char(d.actual_start_date, 'dd-mm-yyyy hh24:mi:ss') "Start_DATE",
         to_char(l.log_date, 'dd-mm-yyyy hh24:mi:ss') "END_DATE",
         l.job_name,
