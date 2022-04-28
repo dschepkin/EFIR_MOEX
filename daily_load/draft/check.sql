@@ -18,6 +18,19 @@ from EFIR.MOEX_SECURITIES_SESSIONS
 where TRUNC(update_date) = TRUNC(sysdate)
 order by update_date desc
 /
+--Проверка наличия задания в планировщике
+select job_name,
+  to_char(start_date, 'dd-mm-yyyy hh24:mi:ss') start_date,
+  repeat_interval,
+  to_char(last_start_date, 'dd-mm-yyyy hh24:mi:ss') last_start_date,
+  to_char(next_run_date, 'dd-mm-yyyy hh24:mi:ss') next_run_date,
+  enabled,
+  run_count,
+  failure_count
+ from dba_scheduler_jobs 
+ where owner = 'EFIR'
+ and job_name = 'MOEX_SEC_SES_ACTUALIZATION_J'
+/
 --лог выполнения задания
 select  to_char(d.actual_start_date, 'dd-mm-yyyy hh24:mi:ss') "Start_DATE",
         to_char(l.log_date, 'dd-mm-yyyy hh24:mi:ss') "END_DATE",

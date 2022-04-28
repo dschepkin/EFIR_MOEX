@@ -1,6 +1,8 @@
 --connect as EFIR
 BEGIN
-dbms_scheduler.create_job('"MOEX_SEC_SES_ACTUALIZATION_J"',
+DBMS_SCHEDULER.DROP_JOB(job_name => 'MOEX_SEC_SES_ACTUALIZATION_J');
+
+DBMS_SCHEDULER.CREATE_JOB('"MOEX_SEC_SES_ACTUALIZATION_J"',
                             job_type=>'STORED_PROCEDURE',
                             job_action=>'EFIR.MOEX_SEC_SESSION',
                             number_of_arguments=>0,

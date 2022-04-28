@@ -187,8 +187,10 @@ BEGIN
     -- Скопировал из initial_load_v6
     -- Не понял почему участвует только таблица EFIR.TP_CBONDS_MICEX_OFFICIAL и нет EFIR.TP_CBONDS_MICEX_OFFICIAL_EVN
             CASE
-                 when matdate <= trunc (SYSDATE) then max_dayoftrade --Я упростил условие, схлопнув два предыдущих
-                 when matdate > trunc (SYSDATE) then
+    --Правка 28.04.2022
+                   when matdate < trunc (SYSDATE) then max_dayoftrade --т.к. Публикация может происходить день-в-день с matdate, пришлось разделять с условием "="
+                   when matdate = trunc (SYSDATE) then NULL -- Отделено от условия <, т.к. дату max (DT) получаем на следующий день, по которой будет видно торговлю день-в-день с matdate 
+                   when matdate > trunc (SYSDATE) then
                     case
     -- Правка 25.04.22
                        when max_dayoftrade > trunc (SYSDATE)-3 then NULL --Смотреть остаётся только по max(DT)
@@ -276,8 +278,9 @@ BEGIN
     
         end_session_date =
             CASE
-    --Правка 25.04.22
-               WHEN f.matdate <= TRUNC(SYSDATE) AND end_session_date is null THEN f.max_dayoftrade
+    --Правка 28.04.22
+               WHEN matdate < trunc (SYSDATE) then max_dayoftrade --т.к. Публикация может происходить день-в-день с matdate, пришлось разделять с условием "="
+               WHEN matdate = trunc (SYSDATE) then NULL -- Отделено от условия <, т.к. дату max (DT) получаем на следующий день, по которой будет видно торговлю день-в-день с matdate 
                WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is null AND (mss.max_dayoftrade != f.max_dayoftrade) THEN
                      case
                        when f.max_dayoftrade > trunc (SYSDATE)-3 then NULL
@@ -376,8 +379,9 @@ BEGIN
                WHEN mss.listed_till is not null AND f.listed_till is null THEN SYSDATE --Если прилетит зануление (т.е. ценную бумагу уберут),то дата update отразит попытку зануления.
                WHEN mss.MATDATE != f.MATDATE THEN SYSDATE --Добавил от matdate
                WHEN f.max_dayoftrade > mss.max_dayoftrade THEN SYSDATE --Добавил от max_dayoftrade
-    
-               WHEN f.matdate <= TRUNC(SYSDATE) AND end_session_date is null THEN SYSDATE
+    --Правка 28.04.22
+               WHEN f.matdate < TRUNC(SYSDATE) AND end_session_date is null THEN SYSDATE
+               WHEN f.matdate = TRUNC(SYSDATE) AND end_session_date is null THEN update_date --т.е. не поменяется, т.к. end_session_date мы до завтра не меняем
                WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is null AND (mss.max_dayoftrade != f.max_dayoftrade) THEN
                      case
                        when f.max_dayoftrade > trunc (SYSDATE)-3 then SYSDATE
