@@ -51,7 +51,9 @@ BEGIN
             f.begin_session_date, -- Может быть такое, что begin_session_date > чем последняя дата торговли. Например SECURITYID-XS0810596832 BOARD-PTOD TRADINGSESSION-2 (такое однозначно к Анатолию), Возможно, нужно будет прописывать отдельные case's  для begin_session_date под такое
             f.max_dayoftrade, -- ДОБАВИЛ 25.04.22
             case
-               when matdate <= trunc (SYSDATE) then max_dayoftrade --Я упростил условие, схлопнув два предыдущих
+--Правка 28.04.2022
+               when matdate < trunc (SYSDATE) then max_dayoftrade --т.к. Публикация может происходить день-в-день с matdate, пришлось разделять с условием "="
+               when matdate = trunc (SYSDATE) then NULL -- Отделено от условия <, т.к. дату max (DT) получаем на следующий день, по которой будет видно торговлю день-в-день с matdate 
                when matdate > trunc (SYSDATE) then
                  case
 -- Правка 25.04.22
@@ -102,8 +104,10 @@ BEGIN
             f.begin_session_date,
             f.max_dayoftrade, -- ДОБАВИЛ 25.04.22
             case
-             when matdate <= trunc (SYSDATE)-3 then max_dayoftrade --Я упростил условие, схлопнув два предыдущих
-             when matdate > trunc (SYSDATE) then
+--Правка 28.04.2022
+               when matdate < trunc (SYSDATE) then max_dayoftrade --т.к. Публикация может происходить день-в-день с matdate, пришлось разделять с условием "="
+               when matdate = trunc (SYSDATE) then NULL -- Отделено от условия <, т.к. дату max (DT) получаем на следующий день, по которой будет видно торговлю день-в-день с matdate 
+               when matdate > trunc (SYSDATE) then
                  case
 -- Правка 25.04.22
                    when max_dayoftrade > trunc (SYSDATE)-3 then NULL --Смотреть остаётся только по max(DT)
