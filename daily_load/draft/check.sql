@@ -50,3 +50,23 @@ select * from EFIR.MOEX_SECURITIES_SESSIONS
 where update_date > trunc (sysdate)-2 and MATDATE > trunc (SYSDATE)-5
 and END_SESSION_DATE is NULL and MATDATE is NULL
 /
+
+/*28.04.2022*/
+--Анализ причин появления записи в History
+select * from MOEX_SEC_SES_HIST
+where securityid = 'MTSS' 
+
+--Устанавливаем причину попадания в histoty по базе SESSIONS
+select * from MOEX_SECURITIES_SESSIONS
+where securityid = 'MTSS' and boardid = 'PTEQ' 
+--Если потребуется в дальнейшем выводить в API DH историю дат DT по ценной бумаге в соответствующем tradingsession, 
+--то вероятно нужно будет воспринимать (подменять) tradingsession = null, как tradingsession = 3 и забирать на вывод begin_session_date минимальную
+--дату DT от записи с tradingsession = null, если она меньше чем минимальная запсиь с tradingsession = 3
+
+
+--Смотрим ситуацию в родительской таблице TP_
+select * from TP_SHARES_MICEX_OFFICIAL
+where securityid = 'MTSS' and boardid = 'PTEQ'  
+order by DT desc
+--Если потребуется в дальнейшем выводить в API DH весь листинг дат DT по ценной бумаге в соответствующем tradingsession,
+--то вероятно нужно будет зацеплять (довыводить) даты DT от записей у которых  tradingsession = null, к записям у которых tradingsession = 3 с сортировкой ASC
