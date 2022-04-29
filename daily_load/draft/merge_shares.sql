@@ -189,4 +189,3 @@ WHEN MATCHED THEN
 
 	   ELSE mss.update_date -- т.е. остается старое значение
 	END
-

@@ -252,4 +252,3 @@ WHEN MATCHED THEN -- Не понял, где-то стоит mss. к end_session
            
             ELSE mss.update_date -- т.е. остается старое значение
         END
-;

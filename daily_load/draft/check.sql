@@ -101,12 +101,12 @@ EXEC DBMS_SCHEDULER.RUN_JOB(job_name => 'EFIR.MOEX_SEC_SES_ACTUALIZATION_J')
 /
 --Проверяем результат
 SELECT * 
-FROM efir.moex_sec_ses_hist
+FROM efir.moex_securities_sessions
 WHERE TRUNC(update_date) = TRUNC(sysdate)
 ORDER BY update_date DESC
 /
 SELECT * 
-FROM efir.moex_securities_sessions
+FROM efir.moex_sec_ses_hist
 WHERE TRUNC(update_date) = TRUNC(sysdate)
 ORDER BY update_date DESC
 /
