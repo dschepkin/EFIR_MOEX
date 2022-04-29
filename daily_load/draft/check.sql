@@ -83,3 +83,20 @@ where securityid = 'MTSS' and boardid = 'PTEQ'
 order by DT desc
 --Если потребуется в дальнейшем выводить в API DH весь листинг дат DT по ценной бумаге в соответствующем tradingsession,
 --то вероятно нужно будет зацеплять (довыводить) даты DT от записей у которых  tradingsession = null, к записям у которых tradingsession = 3 с сортировкой ASC
+/
+--29/04/22
+--Очистка таблиц.
+--Вручную выполнение задания
+TRUNCATE TABLE efir.moex_securities_sessions
+/
+TRUNCATE TABLE efir.moex_sec_ses_hist
+/
+--Может выполняться до 10 минут. Позже оптимизируем.
+EXEC DBMS_SCHEDULER.RUN_JOB(job_name => 'EFIR.MOEX_SEC_SES_ACTUALIZATION_J')
+/
+SELECT * FROM efir.moex_sec_ses_hist
+/
+SELECT * FROM EFIR.MOEX_SECURITIES_SESSIONS
+WHERE TRUNC(update_date) = TRUNC(sysdate)
+ORDER BY update_date DESC
+/
