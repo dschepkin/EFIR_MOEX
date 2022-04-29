@@ -49,19 +49,19 @@ end;
 COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."ID" IS 'Служебный идентификатор строки';
 COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."SECURITYID" IS 'Уникальный идентификатор (тикер) ценной бумаги на МБ';
 COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."BOARDID" IS 'Режим торгов ценной бумаги';
-COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."ID_ISS" IS 'Внутренний идентификатор ценной бумаги в конкретном режиме торгов (secid+boardid)';
+COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."ID_ISS" IS 'Внутренний идентификатор ценной бумаги в конкретном режиме торгов';
 COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."SHORTNAME" IS 'Наименование ценной бумаги';
 COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."TRADINGSESSION" IS 'Идентификатор торговой сессии у ценной бумаги (0-утренняя, 1-основная, 2-вечерняя, 3-итоги)';
 COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."BEGIN_SESSION_DATE" IS 'Дата допуска ценной бумаги к торговой сессии';
-COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."END_SESSION_DATE" IS 'Дата исключения бумаги из торговой сессии';
+COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."END_SESSION_DATE" IS 'Дата приостановки/исключения бумаги из торговой сессии';
 COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."TYPECODE" IS 'Наименование типа ценной бумаги';
 COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."LISTED_FROM" IS 'Дата публикации ценной бумаги на режиме торгов МосБиржи';
 COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."LISTED_TILL" IS 'Крайняя дата по ценной бумаге на режиме торгов МосБиржи';
-COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."MATDATE" IS 'Дата прекращения торговли ценной бумагой';
+COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."MATDATE" IS 'Дата погашения (прекращения торговли) ценной бумаги';
 COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."ADD_DATE" IS 'Служебная дата внесения строки в таблицу';
 COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."UPDATE_DATE" IS 'Служебная дата внесения строки в таблицу / Внесение изменений в запись';
-COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."IS_TRADED" IS 'Для связи с таблицей MOEX_SECURITIES_BOARDS';
-COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."MAX_LASTTRADEDATE" IS 'Которая будет соответствовать MAX(dt) OVER(PARTITION BY boardid, securityid, tradingsession)';
+COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."IS_TRADED" IS 'Флаг торгуемости ценной бумаги';
+COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."MAX_LASTTRADEDATE" IS 'Дата последних фактических сделок по ценной бумаге';
 /
 -- INSERT INTO "EFIR"."MOEX_SECURITIES_SESSIONS" (
 --     securityid,
