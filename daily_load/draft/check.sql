@@ -27,7 +27,7 @@ select job_name,
   enabled,
   run_count,
   failure_count
- from dba_scheduler_jobs 
+ from dba_scheduler_jobs
  where owner = 'EFIR'
  and job_name = 'MOEX_SEC_SES_ACTUALIZATION_J'
 /
@@ -67,36 +67,46 @@ and END_SESSION_DATE is NULL and MATDATE is NULL
 /*28.04.2022*/
 --Анализ причин появления записи в History
 select * from MOEX_SEC_SES_HIST
-where securityid = 'MTSS' 
+where securityid = 'MTSS'
 
 --Устанавливаем причину попадания в histoty по базе SESSIONS
 select * from MOEX_SECURITIES_SESSIONS
-where securityid = 'MTSS' and boardid = 'PTEQ' 
---Если потребуется в дальнейшем выводить в API DH историю дат DT по ценной бумаге в соответствующем tradingsession, 
+where securityid = 'MTSS' and boardid = 'PTEQ'
+--Если потребуется в дальнейшем выводить в API DH историю дат DT по ценной бумаге в соответствующем tradingsession,
 --то вероятно нужно будет воспринимать (подменять) tradingsession = null, как tradingsession = 3 и забирать на вывод begin_session_date минимальную
 --дату DT от записи с tradingsession = null, если она меньше чем минимальная запсиь с tradingsession = 3
 
 
 --Смотрим ситуацию в родительской таблице TP_
 select * from TP_SHARES_MICEX_OFFICIAL
-where securityid = 'MTSS' and boardid = 'PTEQ'  
+where securityid = 'MTSS' and boardid = 'PTEQ'
 order by DT desc
 --Если потребуется в дальнейшем выводить в API DH весь листинг дат DT по ценной бумаге в соответствующем tradingsession,
 --то вероятно нужно будет зацеплять (довыводить) даты DT от записей у которых  tradingsession = null, к записям у которых tradingsession = 3 с сортировкой ASC
 /
 --29/04/22
---Очистка таблиц.
---Вручную выполнение задания
+--Актуализация данных вручную
+
+--Очистка таблиц
 TRUNCATE TABLE efir.moex_securities_sessions
 /
 TRUNCATE TABLE efir.moex_sec_ses_hist
 /
---Может выполняться до 10 минут. Позже оптимизируем.
+--Выполняем первоначальную "заливку данных"
+--В Oracle SQL Developer открываем файл "initial_load.sql"
+--Выполняем код
+
+--Вручную выполненяем задание. Может выполняться до 10 минут. Позже оптимизируем.
 EXEC DBMS_SCHEDULER.RUN_JOB(job_name => 'EFIR.MOEX_SEC_SES_ACTUALIZATION_J')
 /
-SELECT * FROM efir.moex_sec_ses_hist
+--Проверяем результат
+SELECT * 
+FROM efir.moex_sec_ses_hist
+WHERE TRUNC(update_date) = TRUNC(sysdate)
+ORDER BY update_date DESC
 /
-SELECT * FROM EFIR.MOEX_SECURITIES_SESSIONS
+SELECT * 
+FROM efir.moex_securities_sessions
 WHERE TRUNC(update_date) = TRUNC(sysdate)
 ORDER BY update_date DESC
 /

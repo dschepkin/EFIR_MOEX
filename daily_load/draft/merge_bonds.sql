@@ -208,7 +208,7 @@ WHEN MATCHED THEN -- Не понял, где-то стоит mss. к end_session
            WHEN f.max_dayoftrade > mss.max_dayoftrade THEN SYSDATE --Добавил от max_dayoftrade
 --Правка 28.04.22
            WHEN f.matdate < TRUNC(SYSDATE) AND end_session_date is null THEN SYSDATE
-           WHEN f.matdate = TRUNC(SYSDATE) AND end_session_date is null THEN update_date --т.е. не поменяется, т.к. end_session_date мы до завтра не меняем
+           WHEN f.matdate = TRUNC(SYSDATE) AND end_session_date is null THEN mss.update_date --т.е. не поменяется, т.к. end_session_date мы до завтра не меняем
            WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is null AND (mss.max_dayoftrade != f.max_dayoftrade) THEN
                  case
                    when f.max_dayoftrade > trunc (SYSDATE)-3 then SYSDATE
