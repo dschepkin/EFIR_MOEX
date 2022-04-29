@@ -66,7 +66,7 @@ COMMENT ON COLUMN "EFIR"."MOEX_SEC_SES_HIST"."UPDATE_DATE" IS 'Служебна�
 COMMENT ON COLUMN "EFIR"."MOEX_SEC_SES_HIST"."IS_TRADED" IS 'Флаг торгуемости ценной бумаги';
 COMMENT ON COLUMN "EFIR"."MOEX_SEC_SES_HIST"."MAX_LASTTRADEDATE" IS 'Дата последних фактических сделок по ценной бумаге';
 COMMENT ON COLUMN "EFIR"."MOEX_SEC_SES_HIST"."DT" IS 'Дата внесения записи';
-COMMENT ON COLUMN "EFIR"."MOEX_SECURITIES_SESSIONS"."MAX_DAYOFTRADE" IS 'Дата последней публикации ценной бумаги на торговой сессии';
+COMMENT ON COLUMN "EFIR"."MOEX_SEC_SES_HIST"."MAX_DAYOFTRADE" IS 'Дата последней публикации ценной бумаги на торговой сессии';
 /
 --INSERT INTO "EFIR"."MOEX_SEC_SES_HIST" (
 --    securityid,
