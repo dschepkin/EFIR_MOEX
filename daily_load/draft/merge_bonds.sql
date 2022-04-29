@@ -224,13 +224,13 @@ WHEN MATCHED THEN -- Не понял, где-то стоит mss. к end_session
 --Добавлено 27.04.22           
            WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is null AND (mss.max_dayoftrade = f.max_dayoftrade) THEN
                  case
- 				   when f.max_dayoftrade > trunc (SYSDATE)-3 then update_date --остается старой
+ 				   when f.max_dayoftrade > trunc (SYSDATE)-3 then mss.update_date --остается старой
                    when f.max_dayoftrade < trunc (SYSDATE)-3 then SYSDATE
                    else mss.update_date
 			     end		   
            WHEN f.matdate is NULL AND end_session_date is null AND (mss.max_dayoftrade = f.max_dayoftrade) THEN
                  case
- 				   when f.max_dayoftrade > trunc (SYSDATE)-3 then update_date --остается старой
+ 				   when f.max_dayoftrade > trunc (SYSDATE)-3 then mss.update_date --остается старой
                    when f.max_dayoftrade < trunc (SYSDATE)-3 then SYSDATE
                    else mss.update_date
 			     end

@@ -158,17 +158,17 @@ WHEN MATCHED THEN
                    when max_dayoftrade < trunc (SYSDATE)-3 then SYSDATE
                    else mss.update_date
     			 end
---!!!!!! Добавил 27.04.22
+-- Правка 29.04.22
            WHEN f.matdate > TRUNC(SYSDATE) AND end_session_date is null AND (mss.max_dayoftrade = f.max_dayoftrade) THEN
                  case
- 				   when f.max_dayoftrade > trunc (SYSDATE)-3 then NULL
-                   when f.max_dayoftrade < trunc (SYSDATE)-3 then f.max_dayoftrade
+ 				   when f.max_dayoftrade > trunc (SYSDATE)-3 then mss.update_date -- остается старой, т.к. max_dayoftrade равны
+                   when f.max_dayoftrade < trunc (SYSDATE)-3 then SYSDATE
                    else mss.update_date
 			     end		   
            WHEN f.matdate is NULL AND end_session_date is null AND (mss.max_dayoftrade = f.max_dayoftrade) THEN
             case
-                when f.max_dayoftrade > trunc (SYSDATE)-3 then NULL
-                when f.max_dayoftrade < trunc (SYSDATE)-3 then f.max_dayoftrade
+                when f.max_dayoftrade > trunc (SYSDATE)-3 then mss.update_date -- остается старой, т.к. max_dayoftrade равны
+                when f.max_dayoftrade < trunc (SYSDATE)-3 then SYSDATE
                 else mss.update_date
             end
 
